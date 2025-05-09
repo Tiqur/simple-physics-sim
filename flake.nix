@@ -18,6 +18,7 @@
         # Dependencies
         glew
         glfw3
+        glm
       ];
     };
   };
