@@ -3,6 +3,7 @@
 #include "imgui_impl_opengl3.h"
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include <chrono>
 #include <cmath>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -158,6 +159,7 @@ int main() {
   auto origin = glm::ivec2(0, 0);
   auto step_rad = 64;
   auto radius_px = 0.1f;
+  auto gravitational_acceleration = -9.81;
 
   // Origin
   vertices.push_back(origin.x); // x
@@ -266,11 +268,26 @@ int main() {
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_LESS);
 
-  // Main render loop
-  float angle = 0.0f;
-  float rotationDegrees = 0.005f;
+  auto last_time = std::chrono::high_resolution_clock::now();
+  float a = gravitational_acceleration;
+  float v = 0.0f;
+  float y = 0.0f;
 
   while (!glfwWindowShouldClose(window)) {
+    auto time_now = std::chrono::high_resolution_clock::now();
+    float dt = std::chrono::duration<float>(time_now - last_time).count();
+    last_time = time_now;
+
+    v += a * dt;
+    y += v * dt;
+
+    // Collision detection
+    if (y <= -1.0f) {
+      y = -1.0f;
+      v *= -0.95f;
+      std::cout << "COLLISION" << std::endl;
+    }
+
     processInput(window);
 
     // Start ImGui frame
@@ -301,19 +318,14 @@ int main() {
     }
 
     // Settings window
-    bool active = true;
-    float min = 0.0f;
-    float max = 0.1f;
-    ImGui::Begin("Settings", &active, ImGuiWindowFlags_MenuBar);
-    ImGui::SliderScalar("Rotation speed", ImGuiDataType_Float, &rotationDegrees,
-                        &min, &max, "%.3f per frame");
-    ImGui::End();
-
-    // Update rotation
-    angle += rotationDegrees;
-    if (angle > 2 * M_PI) {
-      angle -= 2 * M_PI;
-    }
+    // bool active = true;
+    // float min = 0.0f;
+    // float max = 0.1f;
+    // ImGui::Begin("Settings", &active, ImGuiWindowFlags_MenuBar);
+    // ImGui::SliderScalar("Rotation speed", ImGuiDataType_Float,
+    // &rotationDegrees,
+    //                    &min, &max, "%.3f per frame");
+    // ImGui::End();
 
     // Render OpenGL
     glClearColor(0.1f, 0.1f, 0.2f, 1.0f);
@@ -322,11 +334,11 @@ int main() {
     glUseProgram(shaderProgram.id());
 
     // Update transformation matrix
-    glm::mat4 rotationMatrix =
-        glm::rotate(glm::mat4(1.0f), angle, glm::vec3(0.0f, 0.0f, 1.0f));
+    glm::mat4 transformMatrix =
+        glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, y, 0.0f));
     GLint transformLoc = glGetUniformLocation(shaderProgram.id(), "transform");
     glUniformMatrix4fv(transformLoc, 1, GL_FALSE,
-                       glm::value_ptr(rotationMatrix));
+                       glm::value_ptr(transformMatrix));
 
     // Draw the circle
     glBindVertexArray(VAO.id());
